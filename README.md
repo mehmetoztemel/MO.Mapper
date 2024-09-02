@@ -25,11 +25,7 @@ public class Target
     public int Age { get; set; }
 }
 
-// 1. Usage
-Source source = new Source { Name = "John", Age = 30 };
-Target target = source.Map<Source, Target>();
-
-// 2. Usage
+// Usage
 Source source = new Source { Name = "John", Age = 30 };
 Target target = Mapper.Map<Source, Target>(source);
 ```
@@ -57,10 +53,7 @@ List<Source> sources = new List<Source>
     new Source { Name = "Jane", Age = 25 }
 };
 
-// 1. Usage
-List<Target> targets = sources.Map<Source, Target>();
-
-// 2. Usage
+// Usage
 List<Target> targets = Mapper.Map<Source, Target>(sources);
 ```
 
@@ -79,11 +72,7 @@ public class Person
 
 public record PersonRecord(string Name, int Age);
 
-// 1. Usage
-Person person = new Person { Name = "Alice", Age = 28 };
-PersonRecord personRecord = person.Map<Person, PersonRecord>();
-
-// 2. Usage
+// Usage
 Person person = new Person { Name = "Alice", Age = 28 };
 PersonRecord personRecord = Mapper.Map<Person, PersonRecord>(person);
 ```
@@ -100,11 +89,7 @@ public class Employee
     public int Age { get; set; }
 }
 
-// 1. Usage
-EmployeeRecord employeeRecord = new EmployeeRecord("Bob", 35);
-Employee employee = employeeRecord.Map<EmployeeRecord, Employee>();
-
-// 2. Usage
+// Usage
 EmployeeRecord employeeRecord = new EmployeeRecord("Bob", 35);
 Employee employee = Mapper.Map<EmployeeRecord, Employee>(employeeRecord);
 ```
