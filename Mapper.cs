@@ -8,12 +8,16 @@ namespace MO.Mapper
         {
             if (source == null)
             {
-                return null;
+                throw new ArgumentNullException(nameof(source));
             }
 
-            List<PropertyInfo> sourceProperties = (from p in typeof(TSource).GetProperties(BindingFlags.Instance | BindingFlags.Public)
-                                                   where p.CanRead
-                                                   select p).ToList();
+            //List<PropertyInfo> sourceProperties = (from p in typeof(TSource).GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            //                                       where p.CanRead
+            //                                       select p).ToList();
+
+            List<PropertyInfo> sourceProperties = typeof(TSource).GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                                                                 .Where(p => p.CanRead)
+                                                                 .ToList();
 
             if (target == null)
             {
@@ -47,10 +51,14 @@ namespace MO.Mapper
                     target = (TTarget)constructorInfo.Invoke(constructorParams);
                 }
             }
+            //Dictionary<string, PropertyInfo> targetProperties = (from p in typeof(TTarget).GetProperties(BindingFlags.Instance | BindingFlags.Public)
+            //                                                     where p.CanWrite
+            //                                                     select p).ToDictionary((PropertyInfo p) => p.Name, (PropertyInfo p) => p);
 
-            Dictionary<string, PropertyInfo> targetProperties = (from p in typeof(TTarget).GetProperties(BindingFlags.Instance | BindingFlags.Public)
-                                                                 where p.CanWrite
-                                                                 select p).ToDictionary((PropertyInfo p) => p.Name, (PropertyInfo p) => p);
+            Dictionary<string, PropertyInfo> targetProperties = typeof(TTarget)
+                .GetProperties(BindingFlags.Instance | BindingFlags.Public)
+                .Where(p => p.CanWrite)
+                .ToDictionary(p => p.Name, p => p);
 
             foreach (PropertyInfo sourceProp in sourceProperties)
             {
@@ -84,5 +92,4 @@ namespace MO.Mapper
             return result;
         }
     }
-
 }
