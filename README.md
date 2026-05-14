@@ -1,16 +1,28 @@
-﻿
-# MO.Mapper NuGet Package
+﻿# MO.Mapper NuGet Package
 
-MO.Mapper is a utility library for .NET applications that facilitates mapping one type of object to another. It is especially useful for transforming data transfer objects (DTOs) and business logic objects. MO.Mapper uses reflection mechanisms to copy data from a source object to a target object.
+MO.Mapper is a lightweight, high-performance object mapping library for .NET applications. It simplifies transforming data between types such as DTOs and business logic objects, using reflection with built-in caching for optimal performance.
 
 ## Features
-- `Map<TSource, TTarget>(TSource source)`: Converts an object of type TSource to an object of type TTarget.
-- `Map<TSource, TTarget>(IEnumerable<TSource> source)`: Converts a collection of TSource objects to a collection of TTarget objects.
 
-## How to Use
+- `Map<TSource, TTarget>(TSource source)` — Maps a single source object to a target type.
+- `Map<TSource, TTarget>(IEnumerable<TSource> source)` — Maps a collection of source objects to a list of target objects.
+- **Reflection cache** — Property and constructor metadata is resolved once per type and reused across all subsequent calls. No repeated `GetProperties` overhead.
+- **Record support** — Works with both `class` and `record` types, including parameterized constructors.
+- **Thread-safe** — Cache uses `ConcurrentDictionary`, safe for multi-threaded environments such as ASP.NET Core.
 
-### Map<TSource, TTarget>(TSource source)
-This method transforms a source object into a target type. If the target type has a parameterless constructor, the target object is created, and the readable properties from the source object are copied to the writable properties of the target object.
+---
+
+## Installation
+
+```bash
+dotnet add package MO.Mapper
+```
+
+---
+
+## Usage
+
+### Single object mapping
 
 ```csharp
 public class Source
@@ -25,43 +37,45 @@ public class Target
     public int Age { get; set; }
 }
 
-// Usage
 Source source = new Source { Name = "John", Age = 30 };
 Target target = Mapper.Map<Source, Target>(source);
 ```
 
-### Map<TSource, TTarget>(IEnumerable<TSource> source)
-This method converts all objects in a source collection to objects of the target type.
+### Collection mapping
 
 ```csharp
-public class Source
-{
-    public string Name { get; set; }
-    public int Age { get; set; }
-}
-
-public class Target
-{
-    public string Name { get; set; }
-    public int Age { get; set; }
-}
-
-// Usage
 List<Source> sources = new List<Source>
 {
     new Source { Name = "John", Age = 30 },
     new Source { Name = "Jane", Age = 25 }
 };
 
-// Usage
 List<Target> targets = Mapper.Map<Source, Target>(sources);
 ```
 
-## Class to Record and Record to Class Conversions
-MO.Mapper not only supports conversions between class types but also works with record types. Introduced in .NET 5, record types provide immutability with less boilerplate code for data objects. MO.Mapper supports these conversions as well.
+### Mapping into an existing object
 
-**Class to Record**
-You can convert a class type object to a record type object. This conversion is typically used in transitions between data transfer objects (DTOs) and business logic objects.
+An existing target instance can be passed as the second parameter. In this case no new object is created — only the matching properties are overwritten.
+
+```csharp
+Target existing = GetFromDatabase();
+Mapper.Map<Source, Target>(source, existing);
+```
+
+### Updating an existing collection
+
+```csharp
+List<Target> existingTargets = GetFromDatabase();
+List<Target> updated = Mapper.Map<Source, Target>(sources, existingTargets);
+```
+
+---
+
+## Class and Record conversions
+
+MO.Mapper supports all combinations of `class` and `record` types.
+
+**Class → Record**
 
 ```csharp
 public class Person
@@ -72,13 +86,11 @@ public class Person
 
 public record PersonRecord(string Name, int Age);
 
-// Usage
 Person person = new Person { Name = "Alice", Age = 28 };
 PersonRecord personRecord = Mapper.Map<Person, PersonRecord>(person);
 ```
 
-**Record to Class**
-You can convert a record type object to a class type object. This conversion can be useful for processing data or meeting specific business logic requirements.
+**Record → Class**
 
 ```csharp
 public record EmployeeRecord(string Name, int Age);
@@ -89,21 +101,46 @@ public class Employee
     public int Age { get; set; }
 }
 
-// Usage
 EmployeeRecord employeeRecord = new EmployeeRecord("Bob", 35);
 Employee employee = Mapper.Map<EmployeeRecord, Employee>(employeeRecord);
 ```
 
+---
+
+## How the cache works
+
+Reflection metadata (property lists and constructors) is expensive to resolve repeatedly. MO.Mapper caches this metadata the first time a type is encountered and reuses it for all subsequent calls.
+
+```
+First call:  Book  → BookDto   resolves and caches typeof(Book), typeof(BookDto)
+Second call: Book  → BookDto   reads directly from cache, no reflection overhead
+Third call:  BookDto → Book    typeof(Book) and typeof(BookDto) are already cached, nothing new is resolved
+```
+
+Cache entries are scoped to the application lifetime. Because entries are keyed by `Type` and only metadata is stored (not object instances), memory usage is negligible even in large projects — typically a few hundred KB across hundreds of mapped types.
+
+---
+
 ## Notes
-**Map<TSource, TTarget>(TSource source):**
 
-- If the target type has a parameterless constructor, a target object is created, and properties from the source object are copied to the target object.
-- If the target type's constructor requires parameters, appropriate parameters are taken from the source object to create the target object.
+**Constructor resolution priority**
 
-**Map<TSource, TTarget>(IEnumerable<TSource> source):**
+1. Parameterless constructor — object is created and properties are copied.
+2. Fewest-parameter constructor — parameters are matched to source properties by name (case-insensitive). Unmatched parameters receive their default value (`0`, `false`, `null`, etc.).
 
-- Each object in the provided source collection is transformed using the `Map<TSource, TTarget>(TSource source)` method, and the results are returned as a list.
+**Property matching rules**
+
+- Matching is done by property name (case-sensitive equality).
+- Type compatibility is checked via `IsAssignableFrom`. Incompatible types are skipped.
+- Only readable (`CanRead`) source properties and writable (`CanWrite`) target properties are considered.
+
+---
 
 ## Error Handling
-- **Missing Public Constructor**: An `InvalidOperationException` is thrown if there is no suitable constructor in the target type.
-- **Parameter Mismatches**: Default values are assigned if parameters do not match.
+
+| Situation | Behavior |
+|---|---|
+| No public constructor on target type | `InvalidOperationException` is thrown |
+| Constructor parameter has no matching source property | Default value is used (`0`, `false`, `null`) |
+| Source property type is incompatible with target property | Property is skipped |
+| `source` argument is `null` | `ArgumentNullException` is thrown |
